@@ -51,7 +51,23 @@ These requirements cover compatibility and portability of:
 | **CPR-08** | Spatial operations required by hotspot detection and duplicate/related-report detection shall remain compatible with the selected PostgreSQL/PostGIS implementation and its supported spatial queries. | Medium | Execute representative nearby-report, clustering, and duplicate-candidate queries and verify expected results. |
 | **CPR-09** | The AI service shall accept the image format(s) produced by the citizen-reporting workflow and return analysis results in a format that the backend can store with the corresponding report record. | High | Submit representative images through the complete pipeline and verify that detection/classification results are stored against the correct report. |
 
----
+### 3.1 Compatibility Matrix
+
+The following matrix defines the planned supported configurations for the CleanStreet AI implementation and compatibility testing.
+
+| Component | Configuration | Support Status | Planned Testing |
+|---|---|---|---|
+| Mobile App | Android 11 — Low-end representative device | Supported | Yes |
+| Mobile App | Android 12 — Low-end/Mid-range representative device | Supported | Yes |
+| Mobile App | Android 13 — Mid-range representative device | Supported | Yes |
+| Mobile App | Android 14 — Mid-range representative device | Supported | Yes |
+| Mobile App | Android 15 — Mid-range/High-end representative device | Supported | Yes |
+| Mobile App | Android 16 — High-end representative device | Supported | Yes |
+| Operations Dashboard | Google Chrome — supported stable version used in testing | Supported | Yes |
+| Operations Dashboard | Microsoft Edge — supported stable version used in testing | Supported | Yes |
+| Operations Dashboard | Mozilla Firefox — supported stable version used in testing | Supported | Yes |
+
+**Testing note:** The mobile configurations represent different device performance categories rather than every individual phone model. Compatibility claims are limited to the configurations selected and tested by the project team.---
 
 ## 4. Portability Requirements
 
