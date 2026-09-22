@@ -3,7 +3,7 @@
 ## 1. Receive Cleaning Assignments
 
 **Description:**  
-The cleaning team should be able to receive cleaning tasks assigned by the responsible operator. Each assignment should include the report information needed to understand and handle the cleaning request correctly.
+The cleaning team should be able to receive cleaning tasks assigned by the responsible operator. Each assignment should include the report information needed to understand and handle the cleaning request, such as the report ID, category, priority, location, description, and submitted image.
 
 **Acceptance Condition:**  
 When an operator assigns a report to a cleaning team, the task must appear in the team's task list with the correct report information, priority, and location.
@@ -13,7 +13,7 @@ When an operator assigns a report to a cleaning team, the task must appear in th
 ## 2. View Task Details
 
 **Description:**  
-The cleaning team should be able to open an assigned task and view the details of the reported problem. The task details should include the waste category, priority, description, submitted image, and any supporting information relevant to the cleaning job.
+The cleaning team should be able to open an assigned task and view the details of the reported problem. The task details should include the waste category, priority, description, submitted image, location, and current status.
 
 **Acceptance Condition:**  
 When a team member opens an assigned task, all available task information must be displayed correctly and linked to the correct report.
@@ -23,7 +23,7 @@ When a team member opens an assigned task, all available task information must b
 ## 3. View Task Location
 
 **Description:**  
-The system should show the location of each assigned cleaning task using the GPS coordinates provided when the report was submitted. The cleaning team should be able to identify the reported location quickly on a map.
+The system should show the location of each assigned cleaning task using the GPS coordinates provided when the report was submitted. The cleaning team should be able to identify the reported location on a map.
 
 **Acceptance Condition:**  
 The task must display its location on the map, and the displayed location must match the GPS coordinates stored for the report.
@@ -63,7 +63,7 @@ When a new task is assigned to a cleaning team, the assigned team must receive a
 ## 7. Handle Returned Tasks
 
 **Description:**  
-If the cleaning work is not completed correctly, the operator should be able to return the task to the cleaning team for further action. The returned task should remain connected to the original report and task history.
+If the cleaning work is not completed correctly, the operator should be able to return the task to the cleaning team for further action. The returned task should remain connected to the original report and indicate that additional work is required.
 
 **Acceptance Condition:**  
 When an operator returns a task, the task must be shown to the cleaning team as requiring further action, and the team must receive an appropriate notification.
