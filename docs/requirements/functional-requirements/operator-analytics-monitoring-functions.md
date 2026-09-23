@@ -13,17 +13,17 @@ Define the functionality for monitoring hotspots, recurring reports, area burden
 The system automatically identifies locations with a high frequency of repeated reports within a defined time period, displaying them visually on the operations map as areas requiring urgent attention.
 
 **Acceptance Condition:**
-A location is automatically flagged as a "Hotspot" when it receives 5 or more reports within a 30-day period. Hotspots are displayed on the map with a distinct marker/color, along with a report count and timeframe.
+A location is automatically flagged as a "Hotspot" when it receives 5 or more reports within a 30-day period. Hotspots are displayed on the map with a distinct marker/color, along with a report count.
 
 ---
 
 ## 2. Recurring Reports
 
 **Description:**
-The system links multiple reports submitted about the same location or issue instead of treating them as separate entries, grouping them under a single recurring problem.
+The system flags multiple reports submitted about the same location or issue as potential duplicates and suggests them to the operator for review, instead of merging them automatically. This keeps the final decision on grouping reports in the hands of a human operator.
 
 **Acceptance Condition:**
-Reports within a 50-meter radius submitted within 7 days of each other are automatically grouped under one primary report, with a visible "recurrence count" indicator.
+Reports within a 50-meter radius submitted within 7 days of each other are flagged and suggested to the operator as potential duplicates, with a visible "recurrence count" indicator. The operator reviews the suggestion and manually confirms whether to merge them under one primary report. No automatic merging or grouping of reports occurs without operator confirmation.
 
 ---
 
