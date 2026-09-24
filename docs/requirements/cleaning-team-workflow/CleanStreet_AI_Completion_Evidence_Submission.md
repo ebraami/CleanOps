@@ -56,8 +56,7 @@ On operator rejection (FR-2.20):
 Report status changes from "Awaiting Review" back to "In Progress" (rework required).
 A new STATUS_HISTORY row records this transition.
 ASSIGNMENTS.completed_at is cleared (reset to null) — the assignment is not actually complete, so this field should not hold a stale timestamp from the rejected attempt.
-The team resubmits by repeating Steps 2–6 in full, including a fresh confirmation transaction.
-4. Which After-Photo the Citizen Sees
+The team resubmits by repeating Steps 2–6 in full, including a fresh confirmation transaction. 4. Which After-Photo the Citizen Sees
 
 A report can end up with more than one after-type image if a submission was rejected and resubmitted. Once the report reaches "Resolved," the citizen (FR-1.16) is shown the after-photo(s) from the submission that was actually approved — i.e., the most recent confirmed submission, not any earlier rejected attempt.
 
@@ -67,14 +66,14 @@ Until that addendum is adopted, the interim rule is: the image row(s) with the l
 Earlier, rejected after-photos remain in IMAGES for audit purposes but are not surfaced to the citizen.
 
 5. Required Fields and Rules
-Field	Required?	Rule
-After-photo	Required	At least one photo must be provided; the flow cannot reach confirmation without it
-report_id	Required (system-set)	Inferred from the report currently open; never manually entered
-storage_url	Required (system-generated)	Obtained from Object Storage at upload (Step 3), written to IMAGES only at confirmation (Step 6)
-image_type	Required (system-set)	Always after; not a choice presented to the team
-uploaded_at	Required (system-generated)	Server timestamp, set when the IMAGES row is created in Step 6
-Confirmation	Required	The team must explicitly confirm before the transaction in Step 6 runs
-Team authorization	Required (backend check)	Requesting user's team must match ASSIGNMENTS.team_id for the report, checked before Step 1 proceeds
+   Field Required? Rule
+   After-photo Required At least one photo must be provided; the flow cannot reach confirmation without it
+   report_id Required (system-set) Inferred from the report currently open; never manually entered
+   storage_url Required (system-generated) Obtained from Object Storage at upload (Step 3), written to IMAGES only at confirmation (Step 6)
+   image_type Required (system-set) Always after; not a choice presented to the team
+   uploaded_at Required (system-generated) Server timestamp, set when the IMAGES row is created in Step 6
+   Confirmation Required The team must explicitly confirm before the transaction in Step 6 runs
+   Team authorization Required (backend check) Requesting user's team must match ASSIGNMENTS.team_id for the report, checked before Step 1 proceeds
 
 Notes are not included as a field in this version — see Revision Notes, item 4.
 
@@ -87,55 +86,55 @@ Yes. The Images Entity Schema supports multiple images of the same image_type pe
 This submission step produces after-type row(s) in the IMAGES table, written at confirmation (Step 6), not at upload. It does not create a new report and does not overwrite the citizen's original before photo — it adds additional image record(s) linked to the same report_id, distinguished by image_type.
 
 REPORT (report_id = R123)
-  │
-  ├── IMAGES
-  │     ├── image_type = before   → citizen's original report photo
-  │     ├── image_type = after    → rejected submission (kept for audit, not shown to citizen)
-  │     └── image_type = after    → approved submission (shown to citizen once Resolved)
+│
+├── IMAGES
+│ ├── image_type = before → citizen's original report photo
+│ ├── image_type = after → rejected submission (kept for audit, not shown to citizen)
+│ └── image_type = after → approved submission (shown to citizen once Resolved)
 
 This relies on the existing one-to-many relationship between REPORTS and IMAGES. Fields beyond the current schema (uploaded_by, confirmed_at, a submission/assignment link) are covered by the separate Images Entity Schema addendum and are not assumed here except where explicitly flagged in Section 4.
 
 7. Boundary With Other Requirements
-Operator approval/rejection (FR-2.19/FR-2.20) is owned by the Operations Dashboard package; this document only covers what happens up to and including the transaction in Step 6.
-Rejection triggers a full repeat of Steps 2–6 by the cleaning team — this is why the flow is defined as a reusable step, not a one-time action.
+   Operator approval/rejection (FR-2.19/FR-2.20) is owned by the Operations Dashboard package; this document only covers what happens up to and including the transaction in Step 6.
+   Rejection triggers a full repeat of Steps 2–6 by the cleaning team — this is why the flow is defined as a reusable step, not a one-time action.
 8. Full Flow (Reference Diagram)
-Assigned / In Progress Report
-            ↓
-  Verify team_id matches ASSIGNMENTS
-            ↓
-       Open Report
-            ↓
- Capture / Select After-Photo
-            ↓
-  Upload Photo to Object Storage
-    (backend verifies file exists)
-            ↓
-      Review Evidence
-            ↓
-    Confirm Submission
-            ↓
- ── Transaction (Step 6) ──────────────
- │ Create IMAGES row(s)               │
- │ Status → "Awaiting Review"         │
- │ STATUS_HISTORY row inserted        │
- │ ASSIGNMENTS.completed_at set       │
- ────────────────────────────────────
-            ↓
+   Assigned / In Progress Report
+   ↓
+   Verify team_id matches ASSIGNMENTS
+   ↓
+   Open Report
+   ↓
+   Capture / Select After-Photo
+   ↓
+   Upload Photo to Object Storage
+   (backend verifies file exists)
+   ↓
+   Review Evidence
+   ↓
+   Confirm Submission
+   ↓
+   ── Transaction (Step 6) ──────────────
+   │ Create IMAGES row(s) │
+   │ Status → "Awaiting Review" │
+   │ STATUS_HISTORY row inserted │
+   │ ASSIGNMENTS.completed_at set │
+   ────────────────────────────────────
+   ↓
    Send to Operator Review
-            ↓
-      Operator Decision
-        /            \
-   Approved        Rejected
-      ↓                ↓
-  Resolved      "In Progress"
-  completed_at    completed_at
-  unchanged        cleared (null)
-      ↓                ↓
-Citizen Views    Team Resubmits
-Approved Photo    (Steps 2–6 repeat)
+   ↓
+   Operator Decision
+   / \
+    Approved Rejected
+   ↓ ↓
+   Resolved "In Progress"
+   completed_at completed_at
+   unchanged cleared (null)
+   ↓ ↓
+   Citizen Views Team Resubmits
+   Approved Photo (Steps 2–6 repeat)
 9. Summary
-Completion evidence submission is the mechanism by which a cleaning team proves cleanup work was done.
-The IMAGES row, the report's status change, the STATUS_HISTORY entry, and ASSIGNMENTS.completed_at are all written together in one transaction, triggered only at confirmation — never earlier.
-Submission moves the report to an awaiting-review state, not directly to "Resolved"; the operator's decision determines whether it becomes "Resolved" or returns to "In Progress" with completed_at cleared.
-The citizen sees the after-photo from the approved submission only; rejected attempts remain in IMAGES for audit but are not surfaced.
-A backend check ensures only a member of the assigned team can submit evidence for a given report.
+   Completion evidence submission is the mechanism by which a cleaning team proves cleanup work was done.
+   The IMAGES row, the report's status change, the STATUS_HISTORY entry, and ASSIGNMENTS.completed_at are all written together in one transaction, triggered only at confirmation — never earlier.
+   Submission moves the report to an awaiting-review state, not directly to "Resolved"; the operator's decision determines whether it becomes "Resolved" or returns to "In Progress" with completed_at cleared.
+   The citizen sees the after-photo from the approved submission only; rejected attempts remain in IMAGES for audit but are not surfaced.
+   A backend check ensures only a member of the assigned team can submit evidence for a given report.
