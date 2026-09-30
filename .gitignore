@@ -1,1 +1,40 @@
+# IDE & Editors
 .idea/
+.vscode/
+*.swp
+*.swo
+
+# Credentials & Secrets (CRITICAL: NEVER COMMIT)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+*oauth*
+.backup_passphrase
+credentials/
+
+# Backup Archives & Encrypted Blobs (OFFSITE / LOCAL ONLY)
+backups/
+*.tar.gz
+*.tar.gz.enc
+*.gpg
+*.enc
+*.bak
+
+# Python Runtime & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Antigravity & Database runtime artifacts
+*.db-wal
+*.db-shm
+*.log
+scratch/

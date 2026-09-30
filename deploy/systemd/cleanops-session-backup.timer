@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily CleanOps Antigravity Session Encrypted Backup
+RefuseManualStart=no
+RefuseManualStop=no
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

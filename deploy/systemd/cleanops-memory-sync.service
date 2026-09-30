@@ -1,0 +1,11 @@
+[Unit]
+Description=CleanOps Memory Synchronization Service
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/cleanops
+EnvironmentFile=/cleanops/.env
+ExecStart=/usr/bin/python3 /cleanops/scripts/sync_project_memory.py
+StandardOutput=journal
+StandardError=journal

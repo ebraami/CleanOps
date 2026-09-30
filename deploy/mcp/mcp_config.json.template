@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cleanops": {
+      "command": "/usr/bin/python3",
+      "args": [
+        "/cleanops/tools/cleanops_mcp.py"
+      ],
+      "disabled": false,
+      "env": {
+        "PYTHONPATH": "/cleanops"
+      }
+    }
+  }
+}

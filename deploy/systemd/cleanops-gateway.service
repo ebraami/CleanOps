@@ -1,0 +1,16 @@
+[Unit]
+Description=CleanOps Boss Thin Gateway
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/cleanops
+EnvironmentFile=/cleanops/.env
+ExecStart=/usr/bin/python3 /cleanops/tools/cleanops_gateway.py
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

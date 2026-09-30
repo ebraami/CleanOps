@@ -1,0 +1,17 @@
+[Unit]
+Description=antigravity remote-control daemon
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/home/cleanops/.local/bin/agy remote-control serve
+Restart=on-failure
+RestartSec=10s
+RestartPreventExitStatus=3
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
