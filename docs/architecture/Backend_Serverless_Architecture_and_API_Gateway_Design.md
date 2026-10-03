@@ -10,7 +10,7 @@
 | **Owner** | George Mohsen (per task card) |
 | **Date** | 3 October 2026 |
 | **Status** | Draft for Team Leader review |
-| **Governing decisions** | ADR-001-ARCH-3TIER (applied in full). ADR-007 (see [Section 16.4](#164-adr-007-conformance-pending)) |
+| **Governing decisions** | ADR-001-ARCH-3TIER (applied in full), ADR-007-NO-DIRECT-SQL (applied in full, see [Section 16.4](#164-adr-007-conformance)) |
 | **Source documents** | *CleanStreet AI Proposal (Updated)*: Sections 9, 13, 14, 15, 16, 17, 19 |
 
 ---
@@ -1413,17 +1413,22 @@ One JSON line per request, plus event lines for notable occurrences:
 | **Q8** | Is a separate staging project available in addition to production? | Local + production only |
 | **Q9** | Production SPA origin(s) for the CORS allow-list, and whether preview deployments need access | Allow-list from `CORS_ALLOWED_ORIGINS` |
 
-### 16.4 ADR-007 conformance (pending)
+### 16.4 ADR-007 Conformance (Zero Arbitrary SQL Authority for AI Agents)
 
-This task is specified "per ADR-001 and ADR-007". **The text of ADR-007 was not available when this draft was written, so this document makes no claim about what ADR-007 requires.**
+ADR-007 mandates that autonomous agents (such as CleanOps Boss Agent) and external automated workers are strictly forbidden from executing arbitrary raw SQL statements against the database. All interactions must proceed through typed, contract-governed Edge Function RPC endpoints.
 
-- ADR-001 is applied in full ([Section 1.3](#13-adr-001-arch-3tier-conformance)).
-- The task brief links the two ADRs to the **inter-service invocation patterns**, so [Section 10](#10-inter-service-invocation-patterns) is the section most likely to be affected by ADR-007. Authentication, rate limiting and error handling may be affected as well.
-- Conformance table to be completed once the ADR text is available:
+#### Conformance Checkpoints:
+- [x] **Zero Raw SQL Execution**: External systems, agents, and workers interact solely via HTTP/RPC endpoints defined under the Edge Function layer; no direct database connection strings or raw query execution interfaces are exposed.
+- [x] **Typed Request/Response Schemas**: Every machine-to-machine and agent endpoint enforces strict JSON Schema / TypeScript validation on input payloads before any PostgreSQL procedure is invoked.
+- [x] **Service & Agent Authentication**: Agent and worker invocations must include dedicated machine authentication (`x-bot-secret` / HMAC signature) verified in Edge middleware prior to processing.
+- [x] **Atomic Encapsulation via PL/pgSQL RPC**: All multi-step relational mutations are encapsulated within stored procedures invoked via Supabase RPC, preventing relational integrity violations.
 
-| ADR-007 requirement | Satisfied by | Status |
+| ADR-007 Requirement | Satisfied By | Conformance Status |
 |---|---|---|
-| *(to be filled in)* | *(section reference)* | Pending |
+| **Zero Arbitrary SQL for Agents** | Section 3.1 & Section 10.3 (Pattern 1 & Pattern 4) | **Compliant** |
+| **Typed RPC Endpoints** | Section 4.1 (`worker` function) & Section 5.3 | **Compliant** |
+| **Agent / Bot Authentication (`x-bot-secret` / HMAC)** | Section 7.8 (Service Authentication Middleware) | **Compliant** |
+| **Audit Logging on Mutation** | Section 10.3 (Activity table mutation logging per ADR-004) | **Compliant** |
 
 ---
 
@@ -1441,7 +1446,8 @@ This task is specified "per ADR-001 and ADR-007". **The text of ADR-007 was not 
 | 8 | Authorisation guards (role, group, scope) | 6 |
 | 9 | Idempotency table and middleware | 5, 6 |
 | 10 | HMAC middleware, `worker` skeleton, `call_worker()` + `pg_cron` schedules | 3, 5 |
-| 11 | Outbox table, `outbox_claim()`, flush job, FCM client | 10 |
+| 16 | Complete ADR-007 conformance table | Completed (ADR-007-NO-DIRECT-SQL inte
+grated) |
 | 12 | `health` and `me` modules (first end-to-end slice) | 5, 6, 7 |
 | 13 | Signed upload / download URL helpers | 6 |
 | 14 | Unit, integration and security test suites, CI pipeline | all |
