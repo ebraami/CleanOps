@@ -1,0 +1,2379 @@
+openapi: 3.0.3
+info:
+  title: CleanStreet AI - Backend REST API
+  version: 1.0.0
+  description: |
+    Authoritative API contract for the **CleanStreet AI** platform (Smart Citizen-Requested
+    Street Cleaning and Waste Management Platform).
+
+    The backend is a **Java Spring Boot** REST service. Identity, file storage and push
+    notifications are delegated to **Firebase**:
+
+    | Concern            | Firebase service                | How the API uses it |
+    |--------------------|---------------------------------|---------------------|
+    | Authentication     | Firebase Authentication         | Clients send a Firebase **ID token** as `Authorization: Bearer <token>`. The API verifies it with the Firebase Admin SDK. |
+    | Authorisation      | Firebase **custom claims**      | Claims `role` (`CITIZEN`, `OPERATOR`, `TEAM_MEMBER`, `ADMIN`) and `teamId` are read from the verified token. |
+    | Image storage      | Firebase Storage                | Images are uploaded **directly** by the client through short-lived signed URLs. The database stores only the storage path (`IMAGES.storage_url`). |
+    | Push notifications | Firebase Cloud Messaging (FCM)  | Devices register FCM tokens; the API pushes status-change notifications. |
+
+    Data is stored in PostgreSQL + PostGIS (tables: USERS, CATEGORIES, REPORTS, IMAGES,
+    STATUS_HISTORY, CLEANING_TEAMS, ASSIGNMENTS).
+
+    ## Design principles
+    * **AI assists, the operator decides.** AI output (detection, classification, severity,
+      priority) is advisory. Operators can override priority (with a mandatory reason) and
+      duplicate matches are only *suggested*, never merged automatically.
+    * **A report is never closed by the team alone.** A completed job moves to
+      `PENDING_VERIFICATION`; only an operator can mark it `RESOLVED` or send it back.
+    * **Every status change is audited** in STATUS_HISTORY.
+
+    ## Roles (Firebase custom claim `role`)
+    | Role          | Description |
+    |---------------|-------------|
+    | `CITIZEN`     | Submits and tracks own reports. |
+    | `OPERATOR`    | Dispatcher: triages reports, assigns teams, verifies completion, views analytics. |
+    | `TEAM_MEMBER` | Field worker belonging to one cleaning team (`teamId` claim); starts jobs and uploads completion evidence. |
+    | `ADMIN`       | Everything an `OPERATOR` can do, plus team management and scoring configuration. |
+
+    Each operation lists the roles allowed to call it in the `x-required-roles` extension
+    (Firebase has no OAuth scopes; the roles above play that part).
+
+    ## Conventions
+    * Base path: `/api/v1`. All timestamps are ISO-8601 UTC (`date-time`). IDs are UUIDs.
+    * Pagination is 0-based: `page`, `size` (max 100), `sort=field,asc|desc`.
+    * Errors follow RFC 7807 (`application/problem+json`) - see `ProblemDetail`.
+    * `POST /reports` supports idempotency through the `Idempotency-Key` header (safe retries on weak mobile networks).
+  contact:
+    name: CleanStreet AI Backend Team
+  license:
+    name: Academic / Graduation Project
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://api.cleanstreet.example.com/api/v1
+    description: Staging / pilot (placeholder)
+tags:
+  - name: Health
+    description: Liveness probe.
+  - name: Users
+    description: Profile linked to the Firebase account, and FCM device registration.
+  - name: Categories
+    description: Report categories (issue types).
+  - name: Uploads
+    description: Firebase Storage signed URLs for evidence images.
+  - name: Citizen Reports
+    description: Citizen submission and tracking.
+  - name: Operator Triage
+    description: Dispatcher review, AI results, priority override, duplicates.
+  - name: Operator Assignment
+    description: Assigning teams and verifying completion.
+  - name: Team Field Work
+    description: Cleaning-team job execution and completion evidence.
+  - name: Teams
+    description: Cleaning team management.
+  - name: Analytics
+    description: Operational and spatial analytics.
+  - name: Notifications
+    description: In-app notification feed (push is sent through FCM).
+  - name: Admin
+    description: Configuration.
+  - name: Internal
+    description: Service-to-service endpoints (AI service). Not exposed to mobile or web clients.
+
+security:
+  - firebaseAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Liveness check
+      security: []
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: UP
+
+  # ------------------------------------------------------------------ Users
+  /users/me:
+    post:
+      tags: [Users]
+      operationId: createMyProfile
+      summary: Create the backend profile for the signed-in Firebase user
+      description: |
+        Called once, right after Firebase registration. The `firebaseUid` and `email` are taken
+        from the verified token; new profiles always receive role `CITIZEN`
+        (operators, team members and admins are provisioned by an admin).
+      x-required-roles: [CITIZEN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileRequest'
+            example:
+              name: Mariam Mahfouz
+      responses:
+        '201':
+          description: Profile created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Users]
+      operationId: getMyProfile
+      summary: Get my profile
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      operationId: updateMyProfile
+      summary: Update my profile
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/devices:
+    post:
+      tags: [Users]
+      operationId: registerDevice
+      summary: Register (or refresh) an FCM device token
+      description: Idempotent per `fcmToken`; re-registering returns the existing device.
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+      responses:
+        '200':
+          description: Token already registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '201':
+          description: Token registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/devices/{deviceId}:
+    delete:
+      tags: [Users]
+      operationId: unregisterDevice
+      summary: Remove an FCM device token (e.g. on sign-out)
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      responses:
+        '204':
+          description: Device removed.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------------------------------------------------- Categories
+  /categories:
+    get:
+      tags: [Categories]
+      operationId: listCategories
+      summary: List report categories
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      responses:
+        '200':
+          description: All categories.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------- Uploads
+  /uploads/signed-urls:
+    post:
+      tags: [Uploads]
+      operationId: createSignedUploadUrl
+      summary: Get a signed URL to upload an image directly to Firebase Storage
+      description: |
+        **Flow**
+        1. Call this endpoint -> receive `uploadUrl` and `storagePath`.
+        2. `PUT` the raw image bytes to `uploadUrl` with the same `Content-Type`
+           (the request goes to Firebase Storage, not to this API).
+        3. Send the `storagePath` in `POST /reports` (purpose `REPORT_PHOTO`) or in
+           `POST /team/assignments/{assignmentId}/completion` (purpose `COMPLETION_EVIDENCE`).
+
+        Only `image/jpeg`, `image/png` and `image/webp` up to 10 MB are accepted.
+        The URL expires after a few minutes; a path never attached to a report is garbage-collected.
+      x-required-roles: [CITIZEN, TEAM_MEMBER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedUploadRequest'
+            example:
+              purpose: REPORT_PHOTO
+              contentType: image/jpeg
+              sizeBytes: 2457600
+      responses:
+        '201':
+          description: Signed upload URL issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedUploadResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /images/{imageId}/url:
+    get:
+      tags: [Uploads]
+      operationId: getImageDownloadUrl
+      summary: Get a short-lived signed URL to view a stored image
+      description: |
+        Raw images are private (they may contain people, plates or addresses).
+        Citizens may read images of their own reports; operators and the assigned team may
+        read images of reports they handle.
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ImageId'
+      responses:
+        '200':
+          description: Signed download URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedDownloadResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # -------------------------------------------------------- Citizen reports
+  /reports:
+    post:
+      tags: [Citizen Reports]
+      operationId: submitReport
+      summary: Submit a new waste report
+      description: |
+        Creates a report with status `SUBMITTED` and queues it for AI analysis
+        (`analysisStatus = PENDING`). Priority fields are filled in asynchronously once the
+        AI service returns results.
+
+        Send an `Idempotency-Key` (UUID) so that a retried request returns the original
+        report instead of creating a duplicate.
+      x-required-roles: [CITIZEN]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+            example:
+              categoryId: 3f2b8c3e-7d9a-4c43-8c6a-0d5b1c2e9a11
+              latitude: 29.3084
+              longitude: 30.8428
+              description: Pile of garbage next to the school gate for three days.
+              images:
+                - storagePath: reports/9a1f.../b7c2d1e0.jpg
+      responses:
+        '201':
+          description: Report created.
+          headers:
+            Location:
+              description: URL of the new report.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '200':
+          description: Idempotent replay - the report already existed for this key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /reports/mine:
+    get:
+      tags: [Citizen Reports]
+      operationId: listMyReports
+      summary: List my submitted reports (history)
+      x-required-roles: [CITIZEN]
+      parameters:
+        - name: status
+          in: query
+          description: Filter by one or more statuses.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ReportStatus'
+          style: form
+          explode: false
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of the caller's reports, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reports/{reportId}:
+    get:
+      tags: [Citizen Reports]
+      operationId: getReport
+      summary: Get one report
+      description: Citizens can read only their own reports; operators, admins and the assigned team can read any report they handle.
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/{reportId}/history:
+    get:
+      tags: [Citizen Reports]
+      operationId: getReportHistory
+      summary: Status timeline of a report
+      description: Read from STATUS_HISTORY; lets the citizen see acknowledged / in progress / resolved.
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Status changes, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatusHistoryEntry'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/{reportId}/confirmation:
+    post:
+      tags: [Citizen Reports]
+      operationId: confirmResolution
+      summary: Confirm or dispute the resolution of my report (optional rating)
+      description: Allowed only while the report is `RESOLVED` and only once per report.
+      x-required-roles: [CITIZEN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmResolutionRequest'
+      responses:
+        '201':
+          description: Feedback recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmResolutionResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # --------------------------------------------------------- Operator triage
+  /operator/reports:
+    get:
+      tags: [Operator Triage]
+      operationId: listReportsForOperator
+      summary: List and filter reports (ranked by priority by default)
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ReportStatus'
+          style: form
+          explode: false
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: priorityLevel
+          in: query
+          schema:
+            $ref: '#/components/schemas/PriorityLevel'
+        - name: minPriorityScore
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: slaBreached
+          in: query
+          schema:
+            type: boolean
+        - name: bbox
+          in: query
+          description: Map viewport as `minLng,minLat,maxLng,maxLat` (PostGIS envelope filter).
+          schema:
+            type: string
+            example: 30.80,29.28,30.88,29.34
+        - name: createdFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          description: '`field,direction`. Allowed fields: `priorityScore`, `createdAt`, `status`.'
+          schema:
+            type: string
+            default: priorityScore,desc
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorReportPage'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /operator/reports/{reportId}:
+    get:
+      tags: [Operator Triage]
+      operationId: getReportForOperator
+      summary: Full report detail with AI analysis and duplicate suggestions
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Operator view of the report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorReportDetail'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /operator/reports/{reportId}/triage:
+    post:
+      tags: [Operator Triage]
+      operationId: triageReport
+      summary: Accept or reject a submitted report (optionally override priority)
+      description: |
+        Moves a report from `SUBMITTED` to `TRIAGED` (accept) or `REJECTED`.
+
+        The operator may override the AI priority. When `priorityOverride` is sent,
+        `overrideReason` is mandatory; the original AI score is preserved for evaluation of
+        the prioritisation-consistency success criterion.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageRequest'
+            examples:
+              accept:
+                summary: Accept and raise priority
+                value:
+                  decision: ACCEPT
+                  priorityOverride: 0.9
+                  overrideReason: Next to a school entrance and a repeat location.
+              reject:
+                summary: Reject
+                value:
+                  decision: REJECT
+                  rejectionReason: Photo does not show any waste.
+      responses:
+        '200':
+          description: Triage recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorReportDetail'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /operator/reports/{reportId}/analysis/rerun:
+    post:
+      tags: [Operator Triage]
+      operationId: rerunAiAnalysis
+      summary: Re-run AI analysis (e.g. after a failed or low-confidence run)
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '202':
+          description: Re-analysis queued; `analysisStatus` becomes `PENDING`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /operator/reports/{reportId}/duplicate-links:
+    post:
+      tags: [Operator Triage]
+      operationId: decideDuplicateLink
+      summary: Link or dismiss a suggested related report
+      description: |
+        Duplicates are only *suggested* by the system (PostGIS pre-filter + image-embedding similarity).
+        The operator decides: `LINK` groups the reports into one hotspot signal (the repeat count
+        used by priority scoring increases), `DISMISS` records that they are unrelated.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DuplicateDecisionRequest'
+      responses:
+        '200':
+          description: Decision stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorReportDetail'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ----------------------------------------------------- Operator assignment
+  /operator/reports/{reportId}/assignment:
+    post:
+      tags: [Operator Assignment]
+      operationId: assignReportToTeam
+      summary: Assign a triaged report to a cleaning team
+      description: |
+        Allowed when the report is `TRIAGED`. Creates an ASSIGNMENT, sets the report to `ASSIGNED`
+        and notifies the team and the citizen.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignReportRequest'
+            example:
+              teamId: 5d1e7a02-4b33-4a8e-9c3f-6e1b0a7d2f10
+              dueAt: 2026-10-12T15:00:00Z
+              note: Bring a truck, large volume.
+      responses:
+        '201':
+          description: Assignment created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /operator/assignments/{assignmentId}/reassign:
+    post:
+      tags: [Operator Assignment]
+      operationId: reassignAssignment
+      summary: Move an open assignment to a different team
+      description: Allowed while the assignment is `ASSIGNED` or `IN_PROGRESS`. The previous assignment is closed with outcome `REASSIGNED` and a new one is created.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReassignRequest'
+      responses:
+        '201':
+          description: New assignment created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /operator/assignments/{assignmentId}/verification:
+    post:
+      tags: [Operator Assignment]
+      operationId: verifyCompletion
+      summary: Approve or reject the team's completion evidence
+      description: |
+        Allowed when the assignment is `PENDING_VERIFICATION`.
+        * `APPROVE` -> report `RESOLVED`, citizen notified.
+        * `REJECT` -> report returns to `IN_PROGRESS` ("take further action"); `note` is required and sent to the team.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+      responses:
+        '200':
+          description: Verification recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  # ------------------------------------------------------------- Team work
+  /team/assignments:
+    get:
+      tags: [Team Field Work]
+      operationId: listTeamAssignments
+      summary: List assignments of my team
+      description: The team is taken from the `teamId` custom claim.
+      x-required-roles: [TEAM_MEMBER]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/AssignmentStatus'
+          style: form
+          explode: false
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of assignments, soonest due first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /team/assignments/{assignmentId}:
+    get:
+      tags: [Team Field Work]
+      operationId: getTeamAssignment
+      summary: Get one assignment of my team (with the report)
+      x-required-roles: [TEAM_MEMBER]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: The assignment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /team/assignments/{assignmentId}/start:
+    post:
+      tags: [Team Field Work]
+      operationId: startAssignment
+      summary: Mark the job as started
+      description: Allowed when the assignment is `ASSIGNED`. Report becomes `IN_PROGRESS`.
+      x-required-roles: [TEAM_MEMBER]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      responses:
+        '200':
+          description: Assignment started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /team/assignments/{assignmentId}/completion:
+    post:
+      tags: [Team Field Work]
+      operationId: submitCompletionEvidence
+      summary: Submit completion evidence (after photos)
+      description: |
+        Allowed when the assignment is `IN_PROGRESS` (or was sent back by an operator).
+        Images must first be uploaded through `POST /uploads/signed-urls` with purpose
+        `COMPLETION_EVIDENCE`. The assignment becomes `PENDING_VERIFICATION`
+        (`completed_at` is stamped) and the operator is notified. The report is **not** resolved yet.
+      x-required-roles: [TEAM_MEMBER]
+      parameters:
+        - $ref: '#/components/parameters/AssignmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+            example:
+              note: Area cleaned and bins emptied.
+              images:
+                - storagePath: evidence/5d1e.../a91c33.jpg
+      responses:
+        '200':
+          description: Evidence stored, awaiting operator verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assignment'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  # ----------------------------------------------------------------- Teams
+  /teams:
+    get:
+      tags: [Teams]
+      operationId: listTeams
+      summary: List cleaning teams
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of teams.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Teams]
+      operationId: createTeam
+      summary: Create a cleaning team
+      x-required-roles: [ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Team created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /teams/{teamId}:
+    get:
+      tags: [Teams]
+      operationId: getTeam
+      summary: Get a team with its members
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '200':
+          description: The team.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Teams]
+      operationId: updateTeam
+      summary: Update a team (name, working area, active flag)
+      x-required-roles: [ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeamRequest'
+      responses:
+        '200':
+          description: Updated team.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /teams/{teamId}/members:
+    post:
+      tags: [Teams]
+      operationId: addTeamMember
+      summary: Add a user to a team
+      description: Sets the user's role to `TEAM_MEMBER` and updates the Firebase custom claims `role` and `teamId`; the user must refresh their ID token.
+      x-required-roles: [ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTeamMemberRequest'
+      responses:
+        '200':
+          description: Updated team.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /teams/{teamId}/members/{userId}:
+    delete:
+      tags: [Teams]
+      operationId: removeTeamMember
+      summary: Remove a member from a team
+      x-required-roles: [ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: Member removed.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------------------------------------------------- Analytics
+  /operator/analytics/summary:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsSummary
+      summary: Resolution rate, response times, unresolved and SLA-breached counts
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aggregated metrics for the window.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummary'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /operator/analytics/workload:
+    get:
+      tags: [Analytics]
+      operationId: getTeamWorkload
+      summary: Open tasks currently held by each team
+      x-required-roles: [OPERATOR, ADMIN]
+      responses:
+        '200':
+          description: One entry per active team.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamWorkload'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /operator/analytics/hotspots:
+    get:
+      tags: [Analytics]
+      operationId: getHotspots
+      summary: Litter hotspots (PostGIS ST_ClusterDBSCAN clusters)
+      description: |
+        Hotspots only become meaningful after a period of report collection. Each hotspot
+        carries its decay-weighted area burden score.
+      x-required-roles: [OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: bbox
+          in: query
+          description: '`minLng,minLat,maxLng,maxLat`.'
+          schema:
+            type: string
+        - name: minReports
+          in: query
+          description: Minimum reports for a cluster to be returned.
+          schema:
+            type: integer
+            minimum: 2
+            default: 3
+      responses:
+        '200':
+          description: Clusters.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hotspot'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # --------------------------------------------------------- Notifications
+  /notifications:
+    get:
+      tags: [Notifications]
+      operationId: listMyNotifications
+      summary: My in-app notifications
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of notifications, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{notificationId}/read:
+    post:
+      tags: [Notifications]
+      operationId: markNotificationRead
+      summary: Mark a notification as read
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Marked as read.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      operationId: markAllNotificationsRead
+      summary: Mark all my notifications as read
+      x-required-roles: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+      responses:
+        '204':
+          description: All marked as read.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ----------------------------------------------------------------- Admin
+  /admin/scoring-config:
+    get:
+      tags: [Admin]
+      operationId: getScoringConfig
+      summary: Get severity weights and priority factor weights
+      x-required-roles: [ADMIN]
+      responses:
+        '200':
+          description: Current configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringConfig'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Admin]
+      operationId: updateScoringConfig
+      summary: Replace severity and priority weights
+      description: |
+        Weights are stored in a configurable table (not hardcoded) and are provisional until calibrated
+        against pilot or operator feedback. Priority factor weights must sum to 1.0.
+        A new `version` is created; existing reports are not re-scored automatically.
+      x-required-roles: [ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoringConfigUpdate'
+      responses:
+        '200':
+          description: New active configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoringConfig'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  # -------------------------------------------------------------- Internal
+  /internal/reports/{reportId}/analysis:
+    put:
+      tags: [Internal]
+      operationId: storeAiAnalysis
+      summary: AI service writes the analysis result back into the report
+      description: |
+        Called by the AI service (service account, Google-signed OIDC token), never by end-user clients.
+        Stores detections, classification, severity and the priority score in the report record so
+        analytics and duplicate detection stay in one queryable place. The call is idempotent.
+        If `status` is `FAILED`, the report stays `SUBMITTED` with `analysisStatus = FAILED` so the
+        operator can triage it manually or re-run the analysis.
+      x-required-roles: [AI_SERVICE]
+      security:
+        - serviceAccount: []
+      parameters:
+        - $ref: '#/components/parameters/ReportId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAnalysisResult'
+      responses:
+        '200':
+          description: Analysis stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    firebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token (JWT)
+      description: |
+        Firebase ID token obtained on the client with `getIdToken()`. Verified server-side with the Firebase Admin SDK
+        (`FirebaseAuth.verifyIdToken`). Required custom claims: `role` (`CITIZEN` | `OPERATOR` | `TEAM_MEMBER` | `ADMIN`)
+        and, for team members, `teamId`. Tokens expire after one hour - refresh on `401`.
+    serviceAccount:
+      type: http
+      scheme: bearer
+      bearerFormat: Google-signed OIDC identity token
+      description: Identity token of the AI service's Google service account, verified by the backend. Used only by `/internal/**`.
+
+  parameters:
+    ReportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ImageId:
+      name: imageId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      description: Zero-based page index.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Page size.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    From:
+      name: from
+      in: query
+      description: Window start (inclusive). Defaults to 30 days ago.
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      description: Window end (exclusive). Defaults to now.
+      schema:
+        type: string
+        format: date-time
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Client-generated UUID; the same key within 24 h returns the original result.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Malformed request or validation failure.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/validation
+            title: Validation failed
+            status: 400
+            detail: One or more fields are invalid.
+            errors:
+              - field: latitude
+                message: must be between -90 and 90
+    Unauthorized:
+      description: Missing, expired or invalid Firebase ID token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: Firebase ID token is expired.
+    Forbidden:
+      description: Authenticated but the role (or ownership) does not allow this action.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/forbidden
+            title: Forbidden
+            status: 403
+            detail: Role CITIZEN cannot access this resource.
+    NotFound:
+      description: Resource does not exist (or is not visible to the caller).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/not-found
+            title: Not found
+            status: 404
+            detail: Report not found.
+    Conflict:
+      description: The action is not allowed in the resource's current state, or it already exists.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/invalid-state
+            title: Invalid state transition
+            status: 409
+            detail: Report must be TRIAGED before assignment (current status SUBMITTED).
+    UnprocessableEntity:
+      description: Syntactically valid but violates a business rule.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.cleanstreet.example.com/problems/business-rule
+            title: Business rule violated
+            status: 422
+            detail: overrideReason is required when priorityOverride is provided.
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  schemas:
+    # ---------------------------------------------------------- enums
+    Role:
+      type: string
+      enum: [CITIZEN, OPERATOR, TEAM_MEMBER, ADMIN]
+    ReportStatus:
+      type: string
+      description: |
+        Lifecycle: `SUBMITTED` -> `TRIAGED` -> `ASSIGNED` -> `IN_PROGRESS` -> `PENDING_VERIFICATION` -> `RESOLVED`.
+        `REJECTED` is reachable from `SUBMITTED`. A rejected verification returns the report to `IN_PROGRESS`.
+      enum: [SUBMITTED, TRIAGED, ASSIGNED, IN_PROGRESS, PENDING_VERIFICATION, RESOLVED, REJECTED]
+    AssignmentStatus:
+      type: string
+      enum: [ASSIGNED, IN_PROGRESS, PENDING_VERIFICATION, COMPLETED, REASSIGNED]
+    AnalysisStatus:
+      type: string
+      enum: [PENDING, COMPLETED, FAILED]
+    PriorityLevel:
+      type: string
+      description: Derived from `priorityScore` - LOW < 0.25, MEDIUM < 0.5, HIGH < 0.75, CRITICAL otherwise.
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    ImageType:
+      type: string
+      description: '`BEFORE` is the citizen photo, `AFTER` is cleaning-team completion evidence.'
+      enum: [BEFORE, AFTER]
+    UploadPurpose:
+      type: string
+      enum: [REPORT_PHOTO, COMPLETION_EVIDENCE]
+    WasteMaterial:
+      type: string
+      description: Material classes of Garbage Classification v2.
+      enum: [metal, glass, biological, paper, battery, trash, cardboard, shoes, clothes, plastic]
+
+    # --------------------------------------------------------- common
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        traceId:
+          type: string
+        errors:
+          type: array
+          description: Field-level validation errors.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+    PageMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 134
+        totalPages:
+          type: integer
+          example: 7
+    AcceptedResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Request accepted.
+    GeoPoint:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          example: 29.3084
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          example: 30.8428
+    ImageRef:
+      type: object
+      description: Reference to an image already uploaded to Firebase Storage.
+      required: [storagePath]
+      properties:
+        storagePath:
+          type: string
+          maxLength: 500
+          description: Path returned by `POST /uploads/signed-urls`.
+    Image:
+      type: object
+      required: [id, imageType, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        imageType:
+          $ref: '#/components/schemas/ImageType'
+        uploadedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+          nullable: true
+          description: Short-lived signed read URL (only returned when the caller may view the image); otherwise use `GET /images/{imageId}/url`.
+
+    # ----------------------------------------------------------- users
+    User:
+      type: object
+      required: [id, firebaseUid, name, email, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        firebaseUid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+        teamId:
+          type: string
+          format: uuid
+          nullable: true
+    CreateProfileRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+    RegisterDeviceRequest:
+      type: object
+      required: [fcmToken, platform]
+      properties:
+        fcmToken:
+          type: string
+          maxLength: 4096
+        platform:
+          type: string
+          enum: [ANDROID, IOS, WEB]
+    Device:
+      type: object
+      required: [id, platform, registeredAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [ANDROID, IOS, WEB]
+        registeredAt:
+          type: string
+          format: date-time
+
+    # ------------------------------------------------------ categories
+    Category:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Illegal dumping
+    CategoryRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    # ----------------------------------------------------------- upload
+    SignedUploadRequest:
+      type: object
+      required: [purpose, contentType, sizeBytes]
+      properties:
+        purpose:
+          $ref: '#/components/schemas/UploadPurpose'
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10485760
+    SignedUploadResponse:
+      type: object
+      required: [uploadUrl, storagePath, expiresAt, requiredHeaders]
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: Firebase Storage signed URL; `PUT` the image bytes here.
+        storagePath:
+          type: string
+          description: Value to send back in `images[].storagePath`.
+        expiresAt:
+          type: string
+          format: date-time
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            Content-Type: image/jpeg
+    SignedDownloadResponse:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    # ---------------------------------------------------------- reports
+    CreateReportRequest:
+      type: object
+      required: [categoryId, latitude, longitude, images]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        description:
+          type: string
+          maxLength: 1000
+          description: Optional free text.
+        images:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ImageRef'
+    Report:
+      type: object
+      required: [id, category, location, status, analysisStatus, images, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          $ref: '#/components/schemas/CategoryRef'
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        analysisStatus:
+          $ref: '#/components/schemas/AnalysisStatus'
+        priorityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+          description: Null until the AI analysis completes. Reflects an operator override when present.
+        priorityLevel:
+          allOf:
+            - $ref: '#/components/schemas/PriorityLevel'
+          nullable: true
+        slaBreached:
+          type: boolean
+          description: True when the report is unresolved beyond the threshold of its priority tier.
+        rejectionReason:
+          type: string
+          nullable: true
+          description: Present when status is `REJECTED`.
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ReportPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Report'
+    StatusHistoryEntry:
+      type: object
+      required: [id, status, changedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        changedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          nullable: true
+    ConfirmResolutionRequest:
+      type: object
+      required: [confirmed]
+      properties:
+        confirmed:
+          type: boolean
+          description: '`false` means the citizen disputes the resolution; the operator is notified.'
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 500
+    ConfirmResolutionResponse:
+      type: object
+      required: [reportId, confirmed, createdAt]
+      properties:
+        reportId:
+          type: string
+          format: uuid
+        confirmed:
+          type: boolean
+        rating:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------- operator views
+    Citizen:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    OperatorReport:
+      allOf:
+        - $ref: '#/components/schemas/Report'
+        - type: object
+          properties:
+            citizen:
+              $ref: '#/components/schemas/Citizen'
+            assignedTeam:
+              allOf:
+                - $ref: '#/components/schemas/TeamRef'
+              nullable: true
+            repeatCount:
+              type: integer
+              description: Number of linked repeat reports at this location.
+    OperatorReportPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OperatorReport'
+    OperatorReportDetail:
+      allOf:
+        - $ref: '#/components/schemas/OperatorReport'
+        - type: object
+          properties:
+            analysis:
+              allOf:
+                - $ref: '#/components/schemas/AiAnalysis'
+              nullable: true
+            triage:
+              allOf:
+                - $ref: '#/components/schemas/TriageInfo'
+              nullable: true
+            duplicateSuggestions:
+              type: array
+              items:
+                $ref: '#/components/schemas/DuplicateSuggestion'
+            assignment:
+              allOf:
+                - $ref: '#/components/schemas/Assignment'
+              nullable: true
+    TriageInfo:
+      type: object
+      properties:
+        decidedBy:
+          $ref: '#/components/schemas/Citizen'
+        decidedAt:
+          type: string
+          format: date-time
+        aiPriorityScore:
+          type: number
+          nullable: true
+          description: Original AI score, kept even when overridden.
+        priorityOverride:
+          type: number
+          nullable: true
+        overrideReason:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+    TriageRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [ACCEPT, REJECT]
+        priorityOverride:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Only valid with `ACCEPT`.
+        overrideReason:
+          type: string
+          maxLength: 500
+          description: Required when `priorityOverride` is set.
+        rejectionReason:
+          type: string
+          maxLength: 500
+          description: Required when `decision` is `REJECT`; shown to the citizen.
+        note:
+          type: string
+          maxLength: 500
+    DuplicateSuggestion:
+      type: object
+      required: [relatedReportId, distanceMeters, hoursApart, similarity, decision]
+      properties:
+        relatedReportId:
+          type: string
+          format: uuid
+        distanceMeters:
+          type: number
+          example: 12.5
+        hoursApart:
+          type: number
+          example: 20.5
+        similarity:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Image-embedding similarity.
+        decision:
+          type: string
+          enum: [PENDING, LINKED, DISMISSED]
+    DuplicateDecisionRequest:
+      type: object
+      required: [relatedReportId, decision]
+      properties:
+        relatedReportId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [LINK, DISMISS]
+
+    # -------------------------------------------------------------- AI
+    Detection:
+      type: object
+      required: [label, confidence, boundingBox]
+      properties:
+        label:
+          type: string
+          description: Detector class (TACO).
+        material:
+          allOf:
+            - $ref: '#/components/schemas/WasteMaterial'
+          nullable: true
+          description: Output of the classification stage.
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        boundingBox:
+          type: object
+          description: Normalised to image size (0-1).
+          required: [x, y, width, height]
+          properties:
+            x: { type: number }
+            y: { type: number }
+            width: { type: number }
+            height: { type: number }
+    PriorityBreakdown:
+      type: object
+      description: Each factor is normalised to 0-1 before weighting, so the ranking is auditable.
+      required: [severity, reportAge, repeatCount, locationDensity, weights, configVersion]
+      properties:
+        severity:
+          type: number
+          minimum: 0
+          maximum: 1
+        reportAge:
+          type: number
+          minimum: 0
+          maximum: 1
+        repeatCount:
+          type: number
+          minimum: 0
+          maximum: 1
+        locationDensity:
+          type: number
+          minimum: 0
+          maximum: 1
+        weights:
+          $ref: '#/components/schemas/PriorityWeights'
+        configVersion:
+          type: integer
+    AiAnalysis:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Detection'
+        severityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        priorityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        priorityBreakdown:
+          allOf:
+            - $ref: '#/components/schemas/PriorityBreakdown'
+          nullable: true
+        modelVersion:
+          type: string
+          nullable: true
+        analyzedAt:
+          type: string
+          format: date-time
+          nullable: true
+    AiAnalysisResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [COMPLETED, FAILED]
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Detection'
+        severityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        priorityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        priorityBreakdown:
+          $ref: '#/components/schemas/PriorityBreakdown'
+        imageEmbedding:
+          type: array
+          description: Feature vector reused for duplicate detection.
+          items:
+            type: number
+            format: float
+        modelVersion:
+          type: string
+        failureReason:
+          type: string
+          description: Required when `status` is `FAILED`.
+
+    # ------------------------------------------------------ assignments
+    AssignReportRequest:
+      type: object
+      required: [teamId]
+      properties:
+        teamId:
+          type: string
+          format: uuid
+        dueAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          maxLength: 500
+    ReassignRequest:
+      type: object
+      required: [teamId, reason]
+      properties:
+        teamId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          maxLength: 500
+        dueAt:
+          type: string
+          format: date-time
+    VerificationRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+        note:
+          type: string
+          maxLength: 500
+          description: Required when `decision` is `REJECT`.
+    CompletionRequest:
+      type: object
+      required: [images]
+      properties:
+        note:
+          type: string
+          maxLength: 500
+        images:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ImageRef'
+    Assignment:
+      type: object
+      required: [id, reportId, team, status, assignedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reportId:
+          type: string
+          format: uuid
+        report:
+          allOf:
+            - $ref: '#/components/schemas/Report'
+          description: Included on team endpoints.
+        team:
+          $ref: '#/components/schemas/TeamRef'
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+        assignedAt:
+          type: string
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Stamped when the team submits completion evidence.
+        note:
+          type: string
+          nullable: true
+        completionNote:
+          type: string
+          nullable: true
+        completionImages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Image'
+        verificationNote:
+          type: string
+          nullable: true
+    AssignmentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Assignment'
+
+    # ------------------------------------------------------------ teams
+    TeamRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    Team:
+      type: object
+      required: [id, name, area, active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        area:
+          type: string
+          description: Working area (district / zone name).
+        active:
+          type: boolean
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    TeamPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Team'
+    CreateTeamRequest:
+      type: object
+      required: [name, area]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        area:
+          type: string
+          maxLength: 100
+    UpdateTeamRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        area:
+          type: string
+          maxLength: 100
+        active:
+          type: boolean
+    AddTeamMemberRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+
+    # -------------------------------------------------------- analytics
+    AnalyticsSummary:
+      type: object
+      required: [from, to, totalReports, resolvedReports, unresolvedReports, resolutionRate, slaBreachedCount]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        totalReports:
+          type: integer
+        resolvedReports:
+          type: integer
+        unresolvedReports:
+          type: integer
+        resolutionRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Resolved / total in the window.
+        avgResolutionHours:
+          type: number
+          nullable: true
+        medianResolutionHours:
+          type: number
+          nullable: true
+        slaBreachedCount:
+          type: integer
+        byCategory:
+          type: array
+          items:
+            type: object
+            required: [category, count]
+            properties:
+              category:
+                $ref: '#/components/schemas/CategoryRef'
+              count:
+                type: integer
+        byPriorityLevel:
+          type: array
+          items:
+            type: object
+            required: [priorityLevel, count, medianResolutionHours]
+            properties:
+              priorityLevel:
+                $ref: '#/components/schemas/PriorityLevel'
+              count:
+                type: integer
+              medianResolutionHours:
+                type: number
+                nullable: true
+        byTeam:
+          type: array
+          items:
+            type: object
+            required: [team, completedCount]
+            properties:
+              team:
+                $ref: '#/components/schemas/TeamRef'
+              completedCount:
+                type: integer
+              avgResolutionHours:
+                type: number
+                nullable: true
+    TeamWorkload:
+      type: object
+      required: [team, openAssignments]
+      properties:
+        team:
+          $ref: '#/components/schemas/TeamRef'
+        openAssignments:
+          type: integer
+        inProgress:
+          type: integer
+        pendingVerification:
+          type: integer
+    Hotspot:
+      type: object
+      required: [clusterId, center, reportCount, areaBurdenScore]
+      properties:
+        clusterId:
+          type: integer
+        center:
+          $ref: '#/components/schemas/GeoPoint'
+        radiusMeters:
+          type: number
+        reportCount:
+          type: integer
+        openReportCount:
+          type: integer
+        areaBurdenScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Decay-weighted severity rollup; open reports weigh more than resolved ones.
+        reportIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # --------------------------------------------------- notifications
+    Notification:
+      type: object
+      required: [id, type, title, body, read, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [REPORT_STATUS_CHANGED, ASSIGNMENT_CREATED, COMPLETION_SUBMITTED, COMPLETION_REJECTED, RESOLUTION_DISPUTED]
+        title:
+          type: string
+        body:
+          type: string
+        reportId:
+          type: string
+          format: uuid
+          nullable: true
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    NotificationPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Notification'
+
+    # ---------------------------------------------------- scoring config
+    PriorityWeights:
+      type: object
+      description: Weights of the four priority factors. Must sum to 1.0.
+      required: [severity, reportAge, repeatCount, locationDensity]
+      properties:
+        severity:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.4
+        reportAge:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.2
+        repeatCount:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.2
+        locationDensity:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.2
+    ScoringConfigUpdate:
+      type: object
+      required: [severityWeights, priorityWeights]
+      properties:
+        severityWeights:
+          type: object
+          description: Weight per waste material (glass heavier than plastic, for example).
+          additionalProperties:
+            type: number
+            minimum: 0
+          example:
+            glass: 1.0
+            battery: 1.0
+            plastic: 0.5
+        priorityWeights:
+          $ref: '#/components/schemas/PriorityWeights'
+        slaThresholdHours:
+          type: object
+          description: Unresolved-age threshold per priority level, used for the SLA breach flag.
+          additionalProperties:
+            type: integer
+            minimum: 1
+          example:
+            CRITICAL: 24
+            HIGH: 48
+            MEDIUM: 96
+            LOW: 168
+    ScoringConfig:
+      allOf:
+        - $ref: '#/components/schemas/ScoringConfigUpdate'
+        - type: object
+          required: [version, updatedAt]
+          properties:
+            version:
+              type: integer
+            updatedAt:
+              type: string
+              format: date-time
+            updatedBy:
+              $ref: '#/components/schemas/Citizen'
