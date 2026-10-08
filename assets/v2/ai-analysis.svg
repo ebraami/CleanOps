@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400">
+  <defs>
+  <filter id="g1" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="8" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="g2" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="4" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="g3" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="2" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="12"/>
+  </filter>
+  <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#060910"/>
+    <stop offset="50%" stop-color="#0A0F1D"/>
+    <stop offset="100%" stop-color="#060910"/>
+  </linearGradient>
+  <linearGradient id="oG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#F97316" stop-opacity="0"/>
+    <stop offset="30%" stop-color="#F97316" stop-opacity="1"/>
+    <stop offset="70%" stop-color="#F97316" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="orbG">
+    <stop offset="0%" stop-color="#F97316" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+  </radialGradient>
+  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1B2A52" stroke-width="0.4" opacity="0.4"/>
+  </pattern>
+</defs>
+  <rect width="1200" height="400" fill="url(#bgG)"/>
+  <rect width="1200" height="400" fill="url(#grid)"/>
+  <!-- ambient orbs -->
+  <circle cx="180.0" cy="120.0" r="80" fill="url(#orbG)" opacity="0.5">
+    <animate attributeName="r" values="80;100;80" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="1020.0" cy="280.0" r="60" fill="url(#orbG)" opacity="0.4">
+    <animate attributeName="r" values="60;80;60" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="600.0" cy="40.0" r="40" fill="url(#orbG)" opacity="0.3">
+    <animate attributeName="r" values="40;55;40" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <!-- signal line -->
+  <line x1="600" y1="0" x2="600" y2="400" stroke="url(#oG)" stroke-width="2" opacity="0.6"/>
+  <circle r="3" fill="#F97316" filter="url(#g2)">
+    <animate attributeName="cy" values="0;400" dur="4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="600;600" dur="4s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="2" fill="#FFFFFF" filter="url(#g3)">
+    <animate attributeName="cy" values="0;400" dur="4s" begin="2s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="600;600" dur="4s" begin="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- input: report card -->
+  <g transform="translate(180, 200)" opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="0.8s" fill="freeze" begin="0.3s"/>
+    <rect x="-80" y="-60" width="160" height="120" rx="6" fill="#142042" stroke="#1B2A52" stroke-width="2"/>
+    <!-- image placeholder -->
+    <rect x="-65" y="-48" width="130" height="70" rx="3" fill="#0A0F1D"/>
+    <text x="0" y="-10" font-family="Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">REPORT IMAGE</text>
+    <!-- metadata lines -->
+    <rect x="-65" y="30" width="80" height="5" rx="2" fill="#1B2A52"/>
+    <rect x="-65" y="40" width="50" height="5" rx="2" fill="#1B2A52"/>
+  </g>
+
+  <!-- data path to AI -->
+  <path id="aipath" d="M 260 200 L 500 200" fill="none" stroke="#F97316" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.5"/>
+  <circle r="4" fill="#F97316" filter="url(#g2)">
+    <animate attributeName="cx" values="260;500" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="200;200" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- AI PROCESSING CORE -->
+  <g transform="translate(600, 200)">
+    <!-- analysis grid background -->
+    <rect x="-80" y="-80" width="160" height="160" rx="4" fill="#0A0F1D" stroke="#F97316" stroke-width="2" filter="url(#g2)"/>
+    <!-- grid lines -->
+    <g opacity="0.3">
+      <line x1="-80" y1="-40" x2="80" y2="-40" stroke="#F97316" stroke-width="0.5"/>
+      <line x1="-80" y1="0" x2="80" y2="0" stroke="#F97316" stroke-width="0.5"/>
+      <line x1="-80" y1="40" x2="80" y2="40" stroke="#F97316" stroke-width="0.5"/>
+      <line x1="-40" y1="-80" x2="-40" y2="80" stroke="#F97316" stroke-width="0.5"/>
+      <line x1="0" y1="-80" x2="0" y2="80" stroke="#F97316" stroke-width="0.5"/>
+      <line x1="40" y1="-80" x2="40" y2="80" stroke="#F97316" stroke-width="0.5"/>
+    </g>
+    <!-- feature nodes activating -->
+    <circle cx="-40" cy="-40" r="6" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;0.8;0.3" dur="0.5s" fill="freeze" begin="1.5s"/>
+    </circle>
+    <circle cx="40" cy="-40" r="6" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;0.8;0.3" dur="0.5s" fill="freeze" begin="1.8s"/>
+    </circle>
+    <circle cx="0" cy="0" r="8" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;1;0.5" dur="0.5s" fill="freeze" begin="2.1s"/>
+    </circle>
+    <circle cx="-40" cy="40" r="6" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;0.8;0.3" dur="0.5s" fill="freeze" begin="2.4s"/>
+    </circle>
+    <circle cx="40" cy="40" r="6" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;0.8;0.3" dur="0.5s" fill="freeze" begin="2.7s"/>
+    </circle>
+
+    <!-- scanning line -->
+    <line x1="-80" y1="-80" x2="80" y2="-80" stroke="#F97316" stroke-width="2" opacity="0.5">
+      <animate attributeName="y1" values="-80;80;-80" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="-80;80;-80" dur="3s" repeatCount="indefinite"/>
+    </line>
+
+    <text x="0" y="100" font-family="Arial,sans-serif" font-size="12" font-weight="bold" fill="#F97316" text-anchor="middle">AI ANALYSIS ENGINE</text>
+  </g>
+
+  <!-- output path -->
+  <path d="M 680 200 L 900 200" fill="none" stroke="#10B981" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.5"/>
+  <circle r="4" fill="#10B981" filter="url(#g2)">
+    <animate attributeName="cx" values="680;900" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="200;200" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- output cards -->
+  <g transform="translate(970, 200)">
+    <g opacity="0"><animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="3s"/>
+      <rect x="-60" y="-70" width="120" height="30" rx="4" fill="#111C38" stroke="#10B981" stroke-width="1.5"/>
+      <text x="0" y="-51" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#10B981" text-anchor="middle">CLASSIFICATION</text>
+    </g>
+    <g opacity="0"><animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="3.4s"/>
+      <rect x="-60" y="-30" width="120" height="30" rx="4" fill="#111C38" stroke="#F59E0B" stroke-width="1.5"/>
+      <text x="0" y="-11" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#F59E0B" text-anchor="middle">SEVERITY</text>
+    </g>
+    <g opacity="0"><animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="3.8s"/>
+      <rect x="-60" y="10" width="120" height="30" rx="4" fill="#111C38" stroke="#3B82F6" stroke-width="1.5"/>
+      <text x="0" y="29" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#3B82F6" text-anchor="middle">RECOMMENDATION</text>
+    </g>
+  </g>
+
+  <!-- Human-in-the-Loop indicator -->
+  <g transform="translate(600, 360)" opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="4s"/>
+    <rect x="-100" y="-12" width="200" height="24" rx="4" fill="#0A0F1D" stroke="#10B981" stroke-width="1"/>
+    <text x="0" y="4" font-family="Arial,sans-serif" font-size="9" fill="#10B981" text-anchor="middle">HUMAN OPERATOR MAKES FINAL DECISION</text>
+  </g>
+
+  <text x="600" y="35" font-family="Arial,sans-serif" font-size="12" fill="#94A3B8" text-anchor="middle" letter-spacing="5">COMPUTATIONAL VISION PIPELINE</text>
+</svg>

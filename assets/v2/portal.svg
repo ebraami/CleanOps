@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 450">
+  <defs>
+  <filter id="g1" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="8" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="g2" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="4" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="g3" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="2" result="b"/>
+    <feComposite in="SourceGraphic" in2="b" operator="over"/>
+  </filter>
+  <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="12"/>
+  </filter>
+  <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#060910"/>
+    <stop offset="50%" stop-color="#0A0F1D"/>
+    <stop offset="100%" stop-color="#060910"/>
+  </linearGradient>
+  <linearGradient id="oG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#F97316" stop-opacity="0"/>
+    <stop offset="30%" stop-color="#F97316" stop-opacity="1"/>
+    <stop offset="70%" stop-color="#F97316" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="orbG">
+    <stop offset="0%" stop-color="#F97316" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+  </radialGradient>
+  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1B2A52" stroke-width="0.4" opacity="0.4"/>
+  </pattern>
+</defs>
+  <rect width="1200" height="450" fill="url(#bgG)"/>
+  <rect width="1200" height="450" fill="url(#grid)"/>
+  <!-- ambient orbs -->
+  <circle cx="180.0" cy="135.0" r="80" fill="url(#orbG)" opacity="0.5">
+    <animate attributeName="r" values="80;100;80" dur="6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="1020.0" cy="315.0" r="60" fill="url(#orbG)" opacity="0.4">
+    <animate attributeName="r" values="60;80;60" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="600.0" cy="45.0" r="40" fill="url(#orbG)" opacity="0.3">
+    <animate attributeName="r" values="40;55;40" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <!-- signal line -->
+  <line x1="600" y1="0" x2="600" y2="450" stroke="url(#oG)" stroke-width="2" opacity="0.6"/>
+  <circle r="3" fill="#F97316" filter="url(#g2)">
+    <animate attributeName="cy" values="0;450" dur="4s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="600;600" dur="4s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="2" fill="#FFFFFF" filter="url(#g3)">
+    <animate attributeName="cy" values="0;450" dur="4s" begin="2s" repeatCount="indefinite"/>
+    <animate attributeName="cx" values="600;600" dur="4s" begin="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- BOSS pointing toward portal -->
+  <g transform="translate(280,255) scale(1.5)">
+    <!-- shadow -->
+    <ellipse cx="0" cy="55" rx="30" ry="6" fill="#000" opacity="0.4"/>
+
+    <!-- body -->
+    <rect x="-22" y="5" width="44" height="50" rx="8" fill="#111C38" stroke="#1B2A52" stroke-width="1.5"/>
+    <!-- chest panel -->
+    <rect x="-12" y="14" width="24" height="14" rx="3" fill="#0A0F1D" stroke="#F97316" stroke-width="0.8" opacity="0.8"/>
+    <text x="0" y="24" font-family="Arial,sans-serif" font-size="8" font-weight="bold" fill="#F97316" text-anchor="middle">CO</text>
+    <!-- panel lines -->
+    <line x1="-18" y1="35" x2="18" y2="35" stroke="#1B2A52" stroke-width="0.6"/>
+    <line x1="-18" y1="42" x2="18" y2="42" stroke="#1B2A52" stroke-width="0.6"/>
+
+    <!-- head halo -->
+    <circle cx="0" cy="-22" r="34" fill="none" stroke="#F97316" stroke-width="1" opacity="0.2" filter="url(#g1)"/>
+
+    <!-- head -->
+    <circle cx="0" cy="-22" r="28" fill="#142042" stroke="#1B2A52" stroke-width="1.5"/>
+
+    <!-- antenna -->
+    <line x1="0" y1="-50" x2="0" y2="-58" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-60" r="3" fill="#F97316" filter="url(#g2)">
+      <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- visor -->
+    <rect x="-20" y="-32" width="40" height="18" rx="9" fill="#0A0F1D" stroke="#F97316" stroke-width="1.2" filter="url(#g3)"/>
+    <!-- eyes -->
+    <circle cx="-8" cy="-23" r="3" fill="#F97316" filter="url(#g2)">
+      <animate attributeName="r" values="3;3.5;3" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="8" cy="-23" r="3" fill="#F97316" filter="url(#g2)">
+      <animate attributeName="r" values="3;3.5;3" dur="3s" repeatCount="indefinite" begin="0.15s"/>
+    </circle>
+    <!-- smile -->
+    <path d="M -6 -14 Q 0 -10 6 -14" fill="none" stroke="#94A3B8" stroke-width="1.2" stroke-linecap="round"/>
+
+    <!-- left arm -->
+    <rect x="-32" y="10" width="12" height="30" rx="6" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+    <!-- right arm pointing -->
+    <g>
+      <rect x="22" y="8" width="35" height="12" rx="6" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <!-- pointing indicator -->
+      <circle cx="62" cy="14" r="4" fill="#F97316" filter="url(#g2)">
+        <animate attributeName="r" values="4;6;4" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- PORTAL INTERFACE -->
+  <g transform="translate(700, 225)" opacity="0">
+    <animate attributeName="opacity" values="0;1" dur="1.5s" fill="freeze" begin="0.5s"/>
+
+    <!-- outer frame -->
+    <rect x="-230" y="-150" width="460" height="300" rx="8" fill="#0A0F1D" stroke="#1B2A52" stroke-width="2"/>
+    <!-- inner frame -->
+    <rect x="-220" y="-140" width="440" height="280" rx="4" fill="#111C38"/>
+
+    <!-- title bar -->
+    <rect x="-220" y="-140" width="440" height="28" fill="#0A0F1D" rx="4"/>
+    <circle cx="-200" cy="-126" r="4" fill="#EF4444"/>
+    <circle cx="-188" cy="-126" r="4" fill="#F59E0B"/>
+    <circle cx="-176" cy="-126" r="4" fill="#10B981"/>
+    <text x="-160" y="-122" font-family="Arial,sans-serif" font-size="10" fill="#64748B">cleanops-hq.pages.dev</text>
+
+    <!-- sidebar -->
+    <rect x="-220" y="-112" width="100" height="252" fill="#0A0F1D" opacity="0.5"/>
+    <!-- sidebar items -->
+    <rect x="-210" y="-100" width="80" height="8" rx="2" fill="#1B2A52" opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze" begin="1.5s"/>
+    </rect>
+    <rect x="-210" y="-84" width="65" height="8" rx="2" fill="#1B2A52" opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze" begin="1.7s"/>
+    </rect>
+    <rect x="-210" y="-68" width="75" height="8" rx="2" fill="#F97316" opacity="0">
+      <animate attributeName="opacity" values="0;0.8" dur="0.3s" fill="freeze" begin="1.9s"/>
+    </rect>
+    <rect x="-210" y="-52" width="60" height="8" rx="2" fill="#1B2A52" opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze" begin="2.1s"/>
+    </rect>
+    <rect x="-210" y="-36" width="70" height="8" rx="2" fill="#1B2A52" opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze" begin="2.3s"/>
+    </rect>
+
+    <!-- main content cards -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="2.5s"/>
+      <!-- project phase card -->
+      <rect x="-110" y="-100" width="200" height="60" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <rect x="-100" y="-90" width="120" height="6" rx="2" fill="#E2E8F0"/>
+      <rect x="-100" y="-78" width="80" height="4" rx="2" fill="#64748B"/>
+      <!-- progress bar -->
+      <rect x="-100" y="-66" width="180" height="8" rx="4" fill="#0A0F1D"/>
+      <rect x="-100" y="-66" width="0" height="8" rx="4" fill="#F97316">
+        <animate attributeName="width" values="0;110" dur="1.5s" fill="freeze" begin="3s"/>
+      </rect>
+    </g>
+
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="3s"/>
+      <!-- task grid -->
+      <rect x="-110" y="-30" width="95" height="80" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <rect x="-100" y="-20" width="60" height="5" rx="2" fill="#3B82F6"/>
+      <rect x="-100" y="-10" width="75" height="4" rx="2" fill="#64748B"/>
+      <rect x="-100" y="0" width="55" height="4" rx="2" fill="#64748B"/>
+      <rect x="-100" y="15" width="40" height="14" rx="3" fill="#10B981" opacity="0.8"/>
+      <text x="-80" y="25" font-family="Arial,sans-serif" font-size="8" fill="#FFF" text-anchor="middle">Active</text>
+
+      <rect x="-5" y="-30" width="95" height="80" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <rect x="5" y="-20" width="50" height="5" rx="2" fill="#F97316"/>
+      <rect x="5" y="-10" width="70" height="4" rx="2" fill="#64748B"/>
+      <rect x="5" y="0" width="60" height="4" rx="2" fill="#64748B"/>
+      <rect x="5" y="15" width="40" height="14" rx="3" fill="#F59E0B" opacity="0.8"/>
+      <text x="25" y="25" font-family="Arial,sans-serif" font-size="8" fill="#FFF" text-anchor="middle">Review</text>
+    </g>
+
+    <!-- metrics row -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;1" dur="0.5s" fill="freeze" begin="3.5s"/>
+      <rect x="-110" y="60" width="60" height="55" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <text x="-80" y="90" font-family="Arial,sans-serif" font-size="18" font-weight="bold" fill="#F97316" text-anchor="middle">42</text>
+      <text x="-80" y="105" font-family="Arial,sans-serif" font-size="8" fill="#64748B" text-anchor="middle">Tasks</text>
+
+      <rect x="-40" y="60" width="60" height="55" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <text x="-10" y="90" font-family="Arial,sans-serif" font-size="18" font-weight="bold" fill="#10B981" text-anchor="middle">16</text>
+      <text x="-10" y="105" font-family="Arial,sans-serif" font-size="8" fill="#64748B" text-anchor="middle">Done</text>
+
+      <rect x="30" y="60" width="60" height="55" rx="4" fill="#142042" stroke="#1B2A52" stroke-width="1"/>
+      <text x="60" y="90" font-family="Arial,sans-serif" font-size="18" font-weight="bold" fill="#3B82F6" text-anchor="middle">10</text>
+      <text x="60" y="105" font-family="Arial,sans-serif" font-size="8" fill="#64748B" text-anchor="middle">Members</text>
+    </g>
+
+    <!-- scanning line -->
+    <line x1="-220" y1="-140" x2="220" y2="-140" stroke="#F97316" stroke-width="1" opacity="0.3">
+      <animate attributeName="y1" values="-140;140;-140" dur="5s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="-140;140;-140" dur="5s" repeatCount="indefinite"/>
+    </line>
+
+    <!-- activation pulse from Boss direction -->
+    <line x1="-230" y1="0" x2="-280" y2="0" stroke="#F97316" stroke-width="2" filter="url(#g2)" opacity="0">
+      <animate attributeName="opacity" values="0;0.8;0" dur="3s" repeatCount="indefinite" begin="2s"/>
+    </line>
+  </g>
+
+  <!-- label -->
+  <text x="600" y="40" font-family="Arial,sans-serif" font-size="14" fill="#94A3B8" text-anchor="middle" letter-spacing="6">PROJECT ENGINEERING HUB</text>
+</svg>
