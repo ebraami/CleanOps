@@ -1,0 +1,425 @@
+{
+  "source": "taco",
+  "classes": [
+    "Aluminium foil",
+    "Bottle cap",
+    "Bottle",
+    "Broken glass",
+    "Can",
+    "Carton",
+    "Cigarette",
+    "Cup",
+    "Lid",
+    "Other litter",
+    "Other plastic",
+    "Paper",
+    "Plastic bag - wrapper",
+    "Plastic container",
+    "Pop tab",
+    "Straw",
+    "Styrofoam piece",
+    "Unlabeled litter"
+  ],
+  "image_sizes": {
+    "416x416": 6004
+  },
+  "defects": {
+    "degenerate_box_dropped": 40
+  },
+  "defect_examples": {
+    "degenerate_box_dropped": [
+      "taco/train/labels/000024_jpg.rf.6aea534d9d281869e4410b34d3093f0b.txt:13",
+      "taco/train/labels/000024_jpg.rf.8a42457ace2a66aec8055abfe7b3326a.txt:13",
+      "taco/train/labels/000024_jpg.rf.c239fe166577c147d533abb63a283870.txt:13",
+      "taco/train/labels/000024_jpg.rf.fcb8d071c7e26d088135c750b3dbb457.txt:13",
+      "taco/train/labels/000035_jpg.rf.02f42dea4aeaeccebc4f3da1ed1d1f01.txt:7"
+    ]
+  },
+  "leakage_before": {
+    "groups_total": 3665,
+    "groups_in_multiple_splits": 420,
+    "images_in_leaking_groups": {
+      "valid": {
+        "leaked_images": 421,
+        "total_images": 1704,
+        "share": 0.2471
+      },
+      "test": {
+        "leaked_images": 42,
+        "total_images": 100,
+        "share": 0.42
+      }
+    }
+  },
+  "groups_still_in_multiple_splits_after": 0,
+  "stats_before": {
+    "train": {
+      "images": 4200,
+      "annotations": 13220,
+      "boxes_per_image": {
+        "mean": 3.15,
+        "median": 2.0,
+        "max": 90
+      },
+      "instances_per_class": {
+        "Aluminium foil": 142,
+        "Bottle cap": 1318,
+        "Bottle": 821,
+        "Broken glass": 376,
+        "Can": 714,
+        "Carton": 662,
+        "Cigarette": 2187,
+        "Cup": 583,
+        "Lid": 252,
+        "Other litter": 356,
+        "Other plastic": 751,
+        "Paper": 369,
+        "Plastic bag - wrapper": 2228,
+        "Plastic container": 145,
+        "Pop tab": 225,
+        "Straw": 371,
+        "Styrofoam piece": 304,
+        "Unlabeled litter": 1416
+      },
+      "images_per_class": {
+        "Aluminium foil": 94,
+        "Bottle cap": 926,
+        "Bottle": 649,
+        "Broken glass": 41,
+        "Can": 475,
+        "Carton": 503,
+        "Cigarette": 681,
+        "Cup": 484,
+        "Lid": 210,
+        "Other litter": 299,
+        "Other plastic": 460,
+        "Paper": 292,
+        "Plastic bag - wrapper": 1392,
+        "Plastic container": 145,
+        "Pop tab": 163,
+        "Straw": 310,
+        "Styrofoam piece": 213,
+        "Unlabeled litter": 745
+      },
+      "box_area_px": {
+        "p10": 20.0,
+        "median": 520.0,
+        "p90": 10947.0
+      },
+      "box_size_buckets": {
+        "small": 0.5989,
+        "medium": 0.2864,
+        "large": 0.1148
+      }
+    },
+    "valid": {
+      "images": 1704,
+      "annotations": 4820,
+      "boxes_per_image": {
+        "mean": 2.83,
+        "median": 2.0,
+        "max": 90
+      },
+      "instances_per_class": {
+        "Aluminium foil": 62,
+        "Bottle cap": 459,
+        "Bottle": 320,
+        "Broken glass": 123,
+        "Can": 267,
+        "Carton": 263,
+        "Cigarette": 559,
+        "Cup": 186,
+        "Lid": 93,
+        "Other litter": 178,
+        "Other plastic": 265,
+        "Paper": 178,
+        "Plastic bag - wrapper": 854,
+        "Plastic container": 90,
+        "Pop tab": 125,
+        "Straw": 118,
+        "Styrofoam piece": 113,
+        "Unlabeled litter": 567
+      },
+      "images_per_class": {
+        "Aluminium foil": 48,
+        "Bottle cap": 347,
+        "Bottle": 275,
+        "Broken glass": 13,
+        "Can": 187,
+        "Carton": 207,
+        "Cigarette": 221,
+        "Cup": 162,
+        "Lid": 82,
+        "Other litter": 148,
+        "Other plastic": 181,
+        "Paper": 126,
+        "Plastic bag - wrapper": 580,
+        "Plastic container": 83,
+        "Pop tab": 87,
+        "Straw": 110,
+        "Styrofoam piece": 77,
+        "Unlabeled litter": 291
+      },
+      "box_area_px": {
+        "p10": 33.0,
+        "median": 654.5,
+        "p90": 14250.0
+      },
+      "box_size_buckets": {
+        "small": 0.5656,
+        "medium": 0.306,
+        "large": 0.1284
+      }
+    },
+    "test": {
+      "images": 100,
+      "annotations": 394,
+      "boxes_per_image": {
+        "mean": 3.94,
+        "median": 2.0,
+        "max": 54
+      },
+      "instances_per_class": {
+        "Aluminium foil": 6,
+        "Bottle cap": 26,
+        "Bottle": 13,
+        "Broken glass": 51,
+        "Can": 19,
+        "Carton": 30,
+        "Cigarette": 55,
+        "Cup": 19,
+        "Lid": 4,
+        "Other litter": 7,
+        "Other plastic": 28,
+        "Paper": 10,
+        "Plastic bag - wrapper": 59,
+        "Plastic container": 2,
+        "Pop tab": 9,
+        "Straw": 12,
+        "Styrofoam piece": 6,
+        "Unlabeled litter": 38
+      },
+      "images_per_class": {
+        "Aluminium foil": 1,
+        "Bottle cap": 24,
+        "Bottle": 12,
+        "Broken glass": 1,
+        "Can": 8,
+        "Carton": 14,
+        "Cigarette": 16,
+        "Cup": 15,
+        "Lid": 3,
+        "Other litter": 7,
+        "Other plastic": 18,
+        "Paper": 9,
+        "Plastic bag - wrapper": 35,
+        "Plastic container": 2,
+        "Pop tab": 5,
+        "Straw": 10,
+        "Styrofoam piece": 5,
+        "Unlabeled litter": 15
+      },
+      "box_area_px": {
+        "p10": 24.7,
+        "median": 490.0,
+        "p90": 12932.0
+      },
+      "box_size_buckets": {
+        "small": 0.599,
+        "medium": 0.2589,
+        "large": 0.1421
+      }
+    }
+  },
+  "stats_after": {
+    "train": {
+      "images": 4817,
+      "annotations": 14684,
+      "boxes_per_image": {
+        "mean": 3.05,
+        "median": 2.0,
+        "max": 90
+      },
+      "instances_per_class": {
+        "Aluminium foil": 168,
+        "Bottle cap": 1439,
+        "Bottle": 914,
+        "Broken glass": 452,
+        "Can": 798,
+        "Carton": 761,
+        "Cigarette": 2239,
+        "Cup": 632,
+        "Lid": 275,
+        "Other litter": 431,
+        "Other plastic": 828,
+        "Paper": 446,
+        "Plastic bag - wrapper": 2504,
+        "Plastic container": 188,
+        "Pop tab": 285,
+        "Straw": 399,
+        "Styrofoam piece": 317,
+        "Unlabeled litter": 1608
+      },
+      "images_per_class": {
+        "Aluminium foil": 107,
+        "Bottle cap": 1033,
+        "Bottle": 745,
+        "Broken glass": 31,
+        "Can": 546,
+        "Carton": 597,
+        "Cigarette": 719,
+        "Cup": 530,
+        "Lid": 233,
+        "Other litter": 360,
+        "Other plastic": 550,
+        "Paper": 324,
+        "Plastic bag - wrapper": 1612,
+        "Plastic container": 183,
+        "Pop tab": 204,
+        "Straw": 350,
+        "Styrofoam piece": 231,
+        "Unlabeled litter": 856
+      },
+      "box_area_px": {
+        "p10": 24.0,
+        "median": 560.5,
+        "p90": 12240.0
+      },
+      "box_size_buckets": {
+        "small": 0.5868,
+        "medium": 0.2926,
+        "large": 0.1206
+      }
+    },
+    "valid": {
+      "images": 580,
+      "annotations": 1929,
+      "boxes_per_image": {
+        "mean": 3.33,
+        "median": 2.0,
+        "max": 90
+      },
+      "instances_per_class": {
+        "Aluminium foil": 21,
+        "Bottle cap": 188,
+        "Bottle": 122,
+        "Broken glass": 54,
+        "Can": 102,
+        "Carton": 97,
+        "Cigarette": 292,
+        "Cup": 78,
+        "Lid": 35,
+        "Other litter": 56,
+        "Other plastic": 113,
+        "Paper": 55,
+        "Plastic bag - wrapper": 326,
+        "Plastic container": 23,
+        "Pop tab": 39,
+        "Straw": 52,
+        "Styrofoam piece": 64,
+        "Unlabeled litter": 212
+      },
+      "images_per_class": {
+        "Aluminium foil": 18,
+        "Bottle cap": 125,
+        "Bottle": 89,
+        "Broken glass": 12,
+        "Can": 57,
+        "Carton": 53,
+        "Cigarette": 124,
+        "Cup": 70,
+        "Lid": 33,
+        "Other litter": 42,
+        "Other plastic": 40,
+        "Paper": 52,
+        "Plastic bag - wrapper": 209,
+        "Plastic container": 23,
+        "Pop tab": 25,
+        "Straw": 41,
+        "Styrofoam piece": 30,
+        "Unlabeled litter": 77
+      },
+      "box_area_px": {
+        "p10": 25.8,
+        "median": 510.0,
+        "p90": 9581.0
+      },
+      "box_size_buckets": {
+        "small": 0.6107,
+        "medium": 0.2836,
+        "large": 0.1058
+      }
+    },
+    "test": {
+      "images": 607,
+      "annotations": 1821,
+      "boxes_per_image": {
+        "mean": 3.0,
+        "median": 2.0,
+        "max": 38
+      },
+      "instances_per_class": {
+        "Aluminium foil": 21,
+        "Bottle cap": 176,
+        "Bottle": 118,
+        "Broken glass": 44,
+        "Can": 100,
+        "Carton": 97,
+        "Cigarette": 270,
+        "Cup": 78,
+        "Lid": 39,
+        "Other litter": 54,
+        "Other plastic": 103,
+        "Paper": 56,
+        "Plastic bag - wrapper": 311,
+        "Plastic container": 26,
+        "Pop tab": 35,
+        "Straw": 50,
+        "Styrofoam piece": 42,
+        "Unlabeled litter": 201
+      },
+      "images_per_class": {
+        "Aluminium foil": 18,
+        "Bottle cap": 139,
+        "Bottle": 102,
+        "Broken glass": 12,
+        "Can": 67,
+        "Carton": 74,
+        "Cigarette": 75,
+        "Cup": 61,
+        "Lid": 29,
+        "Other litter": 52,
+        "Other plastic": 69,
+        "Paper": 51,
+        "Plastic bag - wrapper": 186,
+        "Plastic container": 24,
+        "Pop tab": 26,
+        "Straw": 39,
+        "Styrofoam piece": 34,
+        "Unlabeled litter": 118
+      },
+      "box_area_px": {
+        "p10": 20.0,
+        "median": 560.0,
+        "p90": 11615.0
+      },
+      "box_size_buckets": {
+        "small": 0.5953,
+        "medium": 0.2856,
+        "large": 0.1192
+      }
+    }
+  },
+  "options": {
+    "split_mode": "regroup",
+    "ratios": [
+      0.8,
+      0.1,
+      0.1
+    ],
+    "dedupe_groups": false,
+    "classes_mode": "original",
+    "hamming": 0,
+    "seed": 42
+  }
+}
