@@ -6,8 +6,6 @@
 # Default URL: http://localhost:8080/api/v1
 # =============================================================================
 
-set -e
-
 API_URL="${1:-http://localhost:8080/api/v1}"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -24,6 +22,20 @@ echo -e "${BLUE}  CleanOps Sprint 01: API Security & Auth Boundary Tests${NC}"
 echo -e "${BLUE}  Target Endpoint: ${API_URL}${NC}"
 echo -e "${BLUE}======================================================================${NC}"
 echo ""
+
+# Pre-flight check: Is the server running?
+echo -e "${YELLOW}Checking if server is reachable on ${API_URL}...${NC}"
+HTTP_CHECK=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "$API_URL/users/me" || echo "DOWN")
+
+if [ "$HTTP_CHECK" == "DOWN" ] || [ "$HTTP_CHECK" == "000" ]; then
+    echo -e "${RED}❌ ERROR: Cannot connect to ${API_URL}!${NC}"
+    echo -e "${YELLOW}Please start your Spring Boot server first in another terminal tab:${NC}"
+    echo -e "  cd /workspaces/CleanOps/backend"
+    echo -e "  mvn spring-boot:run"
+    echo ""
+    exit 1
+fi
+echo -e "${GREEN}✓ Server is running! Starting security assertions...${NC}\n"
 
 # Helper to evaluate results
 assert_equals() {
