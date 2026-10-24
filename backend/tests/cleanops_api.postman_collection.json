@@ -1,0 +1,453 @@
+{
+  "info": {
+    "_postman_id": "6f0c2f0e-5d0b-4a39-9f5d-c1ea0b7a1001",
+    "name": "CleanOps API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "CleanOps backend (Spring Boot + Firebase Auth) - used by the Flutter team for integration.\n\nSetup: set firebaseWebApiKey, firebaseTestEmail and firebaseTestPassword in the collection variables, then run '0. Firebase Auth' -> 'Sign in' to fill {{firebaseToken}}. Run folder '1. Users' in order. Never commit real credentials."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{firebaseToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "firebaseToken",
+      "value": ""
+    },
+    {
+      "key": "firebaseWebApiKey",
+      "value": ""
+    },
+    {
+      "key": "firebaseTestEmail",
+      "value": ""
+    },
+    {
+      "key": "firebaseTestPassword",
+      "value": ""
+    },
+    {
+      "key": "profileName",
+      "value": "Jane Doe"
+    },
+    {
+      "key": "profileEmail",
+      "value": "jane@cleanops.org"
+    },
+    {
+      "key": "userId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Firebase Auth (test helpers)",
+      "description": "Calls the Firebase Auth REST API (not the CleanOps backend) to obtain an ID token for a test account. Flutter gets the same token with FirebaseAuth.instance.currentUser.getIdToken().",
+      "item": [
+        {
+          "name": "Sign up test user (once)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Firebase returned 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"firebaseToken\", json.idToken);",
+                  "pm.test(\"idToken stored in {{firebaseToken}}\", () => pm.expect(json.idToken).to.be.a(\"string\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{firebaseTestEmail}}\",\n  \"password\": \"{{firebaseTestPassword}}\",\n  \"returnSecureToken\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={{firebaseWebApiKey}}",
+              "protocol": "https",
+              "host": [
+                "identitytoolkit",
+                "googleapis",
+                "com"
+              ],
+              "path": [
+                "v1",
+                "accounts:signUp"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{firebaseWebApiKey}}"
+                }
+              ]
+            },
+            "description": "Creates the Firebase test account. Skip if it already exists."
+          }
+        },
+        {
+          "name": "Sign in (get ID token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Firebase returned 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"firebaseToken\", json.idToken);",
+                  "pm.test(\"idToken stored in {{firebaseToken}}\", () => pm.expect(json.idToken).to.be.a(\"string\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{firebaseTestEmail}}\",\n  \"password\": \"{{firebaseTestPassword}}\",\n  \"returnSecureToken\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{firebaseWebApiKey}}",
+              "protocol": "https",
+              "host": [
+                "identitytoolkit",
+                "googleapis",
+                "com"
+              ],
+              "path": [
+                "v1",
+                "accounts:signInWithPassword"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{firebaseWebApiKey}}"
+                }
+              ]
+            },
+            "description": "Stores the ID token in {{firebaseToken}}. Tokens expire after 1 hour - run again on 401."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Users",
+      "description": "Run in order. Task 'User Profile Endpoints'.",
+      "item": [
+        {
+          "name": "Create profile (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Role is hardcoded to CITIZEN\", () => pm.expect(body.role).to.eql(\"CITIZEN\"));",
+                  "pm.test(\"Name and email are echoed\", () => {",
+                  "  pm.expect(body.name).to.eql(pm.collectionVariables.get(\"profileName\"));",
+                  "  pm.expect(body.email).to.eql(pm.collectionVariables.get(\"profileEmail\").toLowerCase());",
+                  "});",
+                  "pm.test(\"Has a UUID id\", () => pm.expect(body.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test(\"Has createdAt\", () => pm.expect(body.createdAt).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"userId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Creates the profile for the Firebase user in the Bearer token. The role is always CITIZEN (server-side). Run this first. A second run returns 409 unless the row is deleted: DELETE FROM public.users WHERE email = 'jane@cleanops.org';",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{profileName}}\",\n  \"email\": \"{{profileEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create profile again (409 duplicate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409 Conflict\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error body has status/error/message\", () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.status).to.eql(409);",
+                  "  pm.expect(b.message).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Same token, profile already exists -> 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{profileName}}\",\n  \"email\": \"{{profileEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create profile with invalid body (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Message names the invalid fields\", () => {",
+                  "  const m = pm.response.json().message;",
+                  "  pm.expect(m).to.include(\"email\");",
+                  "  pm.expect(m).to.include(\"name\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Validation runs before any database access.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \",\n  \"email\": \"not-an-email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get my profile (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Returns the profile created earlier\", () => {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get(\"userId\"));",
+                  "  pm.expect(body.email).to.eql(pm.collectionVariables.get(\"profileEmail\").toLowerCase());",
+                  "  pm.expect(body.role).to.eql(\"CITIZEN\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Returns the profile of the Firebase user in the token."
+          }
+        },
+        {
+          "name": "Get my profile without token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Body matches filter format\", () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.status).to.eql(401);",
+                  "  pm.expect(b.error).to.eql(\"Unauthorized\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "No Authorization header -> rejected by FirebaseAuthenticationFilter.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Get my profile with invalid token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401 Unauthorized\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Garbage token -> 401 'Invalid or expired token'.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "not.a.valid.token",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
