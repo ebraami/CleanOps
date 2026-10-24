@@ -38,3 +38,8 @@ venv/
 *.db-shm
 *.log
 scratch/
+
+# Build & Maven
+target/
+*.class
+*.jar
