@@ -38,3 +38,6 @@ venv/
 *.db-shm
 *.log
 scratch/
+
+# Java build output
+backend/target/
