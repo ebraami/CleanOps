@@ -1,3 +1,4 @@
+
 # IDE & Editors
 .idea/
 .vscode/
@@ -39,7 +40,8 @@ venv/
 *.log
 scratch/
 
-# Build & Maven
+# Java & Maven Build Output
+backend/target/
 target/
 *.class
 *.jar
