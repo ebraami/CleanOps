@@ -1,0 +1,14 @@
+# CleanOps TACO Dataset Configuration for YOLOv8
+# Canonical 5-class mapping generated from cleanops_yolov8_training.ipynb (Cell 6)
+
+path: ./TACO_clean  # Base directory of the cleaned TACO dataset
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: Plastic
+  1: Paper/Cardboard
+  2: Glass
+  3: Metal
+  4: Organic/Trash
