@@ -1,0 +1,131 @@
+{
+  "description": "Mapping used to train yolov8n_cleanops_best.pt: the 18 Kaggle TACO classes -> the 5 CleanOps classes. Source: Task-3 keyword rule (cleanops_waste_analysis.ipynb) applied to the 18 names; 5 merged classes use the majority material.",
+  "applied_in": "ai/training/cleanops_yolov8_training.ipynb, section 4 (applied AFTER clean_taco.py, which keeps the 18 original classes)",
+  "pipeline_order": [
+    "1. raw TACO zip (18 classes)",
+    "2. clean_taco.py (default options: seed 42, ratios 0.8/0.1/0.1) -> leakage-free split, still 18 classes",
+    "3. notebook section 4: rewrite every label file with the 5-class ids below (identical boxes created by merging are removed)",
+    "4. YOLOv8n training on the 5-class labels; validation split = valid; held-out split = test"
+  ],
+  "cleanops_classes": {
+    "0": "Plastic",
+    "1": "Paper/Cardboard",
+    "2": "Glass",
+    "3": "Metal",
+    "4": "Organic/Trash"
+  },
+  "taco_class_to_cleanops": {
+    "Aluminium foil": {
+      "cleanops_class": "Metal",
+      "cleanops_id": 3,
+      "rule": "Task-3 keyword rule"
+    },
+    "Bottle cap": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "majority-material override (merged class)"
+    },
+    "Bottle": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "majority-material override (merged class)"
+    },
+    "Broken glass": {
+      "cleanops_class": "Glass",
+      "cleanops_id": 2,
+      "rule": "Task-3 keyword rule"
+    },
+    "Can": {
+      "cleanops_class": "Metal",
+      "cleanops_id": 3,
+      "rule": "Task-3 keyword rule"
+    },
+    "Carton": {
+      "cleanops_class": "Paper/Cardboard",
+      "cleanops_id": 1,
+      "rule": "Task-3 keyword rule"
+    },
+    "Cigarette": {
+      "cleanops_class": "Organic/Trash",
+      "cleanops_id": 4,
+      "rule": "Task-3 keyword rule"
+    },
+    "Cup": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "majority-material override (merged class)"
+    },
+    "Lid": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "majority-material override (merged class)"
+    },
+    "Other litter": {
+      "cleanops_class": "Organic/Trash",
+      "cleanops_id": 4,
+      "rule": "Task-3 keyword rule"
+    },
+    "Other plastic": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "Task-3 keyword rule"
+    },
+    "Paper": {
+      "cleanops_class": "Paper/Cardboard",
+      "cleanops_id": 1,
+      "rule": "Task-3 keyword rule"
+    },
+    "Plastic bag - wrapper": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "Task-3 keyword rule"
+    },
+    "Plastic container": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "Task-3 keyword rule"
+    },
+    "Pop tab": {
+      "cleanops_class": "Metal",
+      "cleanops_id": 3,
+      "rule": "Task-3 keyword rule"
+    },
+    "Straw": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "majority-material override (merged class)"
+    },
+    "Styrofoam piece": {
+      "cleanops_class": "Plastic",
+      "cleanops_id": 0,
+      "rule": "Task-3 keyword rule"
+    },
+    "Unlabeled litter": {
+      "cleanops_class": "Organic/Trash",
+      "cleanops_id": 4,
+      "rule": "Task-3 keyword rule"
+    }
+  },
+  "taco_class_id_to_cleanops_id": {
+    "0": 3,
+    "1": 0,
+    "2": 0,
+    "3": 2,
+    "4": 3,
+    "5": 1,
+    "6": 4,
+    "7": 0,
+    "8": 0,
+    "9": 4,
+    "10": 0,
+    "11": 1,
+    "12": 0,
+    "13": 0,
+    "14": 3,
+    "15": 0,
+    "16": 0,
+    "17": 4
+  },
+  "dropped_classes": [],
+  "images_removed_by_mapping": 0
+}
