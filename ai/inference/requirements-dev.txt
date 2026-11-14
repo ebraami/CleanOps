@@ -1,0 +1,4 @@
+# Dependencies for running the automated tests:  pip install -r ai/inference/requirements-dev.txt
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27               # required by FastAPI's TestClient
